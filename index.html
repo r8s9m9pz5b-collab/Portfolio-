@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Toggle Test">
+<title>Portfolio Toggle Test</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+    background: #FAF9F6;
+    color: #1A1814;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 20px;
+    line-height: 1.5;
+}
+h1 { font-size: 22px; margin-bottom: 4px; }
+.subtitle { color: #5C564E; font-size: 13px; margin-bottom: 24px; }
+.card {
+    background: white;
+    border: 1px solid #E8E3DA;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+.label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8B847A; margin-bottom: 8px; }
+.big { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
+.btn {
+    background: #1A1814;
+    color: white;
+    border: none;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    width: 100%;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+.btn-secondary { background: white; color: #1A1814; border: 1px solid #E8E3DA; }
+.btn-danger { background: white; color: #B73E3E; border: 1px solid #E8E3DA; }
+.pf-list { margin-bottom: 16px; }
+.pf-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+    background: white;
+    border: 1px solid #E8E3DA;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+.pf-item.active { background: #F2EFE9; border-color: #B8924D; }
+.pf-name { font-weight: 600; }
+.pf-meta { font-size: 12px; color: #5C564E; margin-top: 2px; }
+.pf-check { color: #B8924D; font-size: 18px; }
+.diag {
+    background: #1A1814;
+    color: #FAF9F6;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 16px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1A1814;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 100;
+}
+.toast.show { opacity: 1; }
+.url-banner {
+    background: #FFF3BF;
+    border: 1px solid #B8924D;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 11px;
+    color: #5C564E;
+    margin-bottom: 16px;
+    word-break: break-all;
+    font-family: monospace;
+}
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #E8E3DA;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+
+<h1>Portfolio Toggle Test</h1>
+<div class="subtitle">Stripped-down test of switching + persistence. If this works at a stable URL, the full app will too.</div>
+
+<div class="url-banner" id="url-display">Loading URL...</div>
+
+<div class="card">
+    <div class="label">Active Portfolio</div>
+    <div class="big" id="active-name">—</div>
+    <div id="active-counter" style="font-size: 13px; color: #5C564E;">Counter: 0</div>
+    <button class="btn" onclick="incrementCounter()" style="margin-top: 16px;">Tap to increment</button>
+</div>
+
+<div class="card">
+    <div class="label">All Portfolios</div>
+    <div class="pf-list" id="pf-list"></div>
+    <input type="text" id="new-name" placeholder="New portfolio name" />
+    <button class="btn" onclick="createNew()">Create Portfolio</button>
+</div>
+
+<div class="card">
+    <div class="label">Diagnostics</div>
+    <div class="diag" id="diag">Loading...</div>
+    <button class="btn-secondary btn" onclick="checkStorage()" style="margin-top: 12px;">Check Storage</button>
+    <button class="btn-danger btn" onclick="clearAll()">Clear Everything</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'toggle_test_v1';
+
+let state = loadState();
+
+function loadState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.portfolios && parsed.activeId && parsed.portfolios[parsed.activeId]) {
+                return parsed;
+            }
+        }
+    } catch (e) { console.error(e); }
+    return defaultState();
+}
+
+function defaultState() {
+    const id = newId();
+    return {
+        portfolios: { [id]: { id, name: 'Default', counter: 0, createdAt: Date.now() } },
+        activeId: id,
+    };
+}
+
+function newId() {
+    return 'p_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
+}
+
+function saveState() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        return true;
+    } catch (e) {
+        toast('SAVE FAILED: ' + e.message);
+        return false;
+    }
+}
+
+function getActive() { return state.portfolios[state.activeId]; }
+
+function incrementCounter() {
+    const active = getActive();
+    active.counter = (active.counter || 0) + 1;
+    saveState();
+    render();
+    toast('Counter: ' + active.counter);
+}
+
+function createNew() {
+    const input = document.getElementById('new-name');
+    const name = (input.value || '').trim();
+    if (!name) { toast('Enter a name'); return; }
+    const id = newId();
+    state.portfolios[id] = { id, name, counter: 0, createdAt: Date.now() };
+    state.activeId = id;
+    input.value = '';
+    saveState();
+    render();
+    toast('Created: ' + name);
+}
+
+// EVENT DELEGATION — this is the key fix for the bug
+document.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+    const id = target.dataset.id;
+    
+    if (action === 'switch' && id) {
+        e.preventDefault();
+        state.activeId = id;
+        saveState();
+        render();
+        toast('Switched to ' + state.portfolios[id].name);
+    } else if (action === 'rename' && id) {
+        e.preventDefault();
+        const newName = prompt('Rename:', state.portfolios[id].name);
+        if (newName && newName.trim()) {
+            state.portfolios[id].name = newName.trim();
+            saveState();
+            render();
+            toast('Renamed');
+        }
+    } else if (action === 'delete' && id) {
+        e.preventDefault();
+        const portfolios = Object.values(state.portfolios);
+        if (portfolios.length <= 1) { toast('Cannot delete last portfolio'); return; }
+        if (!confirm('Delete "' + state.portfolios[id].name + '"?')) return;
+        delete state.portfolios[id];
+        if (state.activeId === id) {
+            state.activeId = Object.keys(state.portfolios)[0];
+        }
+        saveState();
+        render();
+        toast('Deleted');
+    }
+});
+
+function render() {
+    const active = getActive();
+    document.getElementById('active-name').textContent = active.name;
+    document.getElementById('active-counter').textContent = 'Counter: ' + (active.counter || 0);
+    
+    const list = Object.values(state.portfolios).sort((a,b) => a.createdAt - b.createdAt);
+    document.getElementById('pf-list').innerHTML = list.map(p => {
+        const isActive = p.id === state.activeId;
+        return `
+        <div class="pf-item ${isActive ? 'active' : ''}">
+            <div data-action="switch" data-id="${p.id}" style="flex:1; cursor:pointer;">
+                <div class="pf-name">${escapeHtml(p.name)}</div>
+                <div class="pf-meta">Counter: ${p.counter || 0}</div>
+            </div>
+            ${isActive ? '<div class="pf-check">●</div>' : ''}
+            <button class="btn-secondary" data-action="rename" data-id="${p.id}" style="padding: 6px 10px; font-size: 11px; margin-left: 8px; width:auto;">Rename</button>
+            ${list.length > 1 ? `<button class="btn-danger" data-action="delete" data-id="${p.id}" style="padding: 6px 10px; font-size: 11px; margin-left: 4px; width:auto;">Delete</button>` : ''}
+        </div>`;
+    }).join('');
+    
+    updateDiag();
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updateDiag() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : null;
+    const portfolios = parsed ? Object.values(parsed.portfolios).map(p => `${p.name}(${p.counter || 0})`).join(', ') : 'NONE';
+    const diag = [
+        'URL: ' + location.href,
+        'Storage: ' + (stored ? 'OK (' + stored.length + ' bytes)' : 'EMPTY'),
+        'Active ID: ' + (parsed ? parsed.activeId : 'none'),
+        'Portfolios in storage: ' + portfolios,
+        'Standalone mode: ' + (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches),
+    ].join('\n');
+    document.getElementById('diag').textContent = diag;
+}
+
+function checkStorage() {
+    try {
+        const k = '__test_' + Date.now();
+        localStorage.setItem(k, 'value');
+        const got = localStorage.getItem(k);
+        localStorage.removeItem(k);
+        if (got === 'value') {
+            toast('localStorage works ✓');
+        } else {
+            toast('localStorage broken: read mismatch');
+        }
+    } catch (e) {
+        toast('localStorage error: ' + e.message);
+    }
+    updateDiag();
+}
+
+function clearAll() {
+    if (!confirm('Clear all data?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    state = defaultState();
+    saveState();
+    render();
+    toast('Cleared');
+}
+
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// Display the URL prominently — helps user notice if it changes
+document.getElementById('url-display').textContent = 'URL: ' + location.href;
+
+render();
+</script>
+
+</body>
+</html>
